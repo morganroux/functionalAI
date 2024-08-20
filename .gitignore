@@ -1,3 +1,8 @@
 *.mp4
 .venv
 *.csv
+*.pth
+videos
+models
+runs
+keypoints

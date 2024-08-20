@@ -9,6 +9,7 @@ pose = mp_pose.Pose(static_image_mode=False, min_detection_confidence=0.5, min_t
 
 # Function to process a video and extract keypoints
 def process_video(video_path, output_csv_path):
+    print(f"Processing video: {video_path}")
     # Open the video file
     cap = cv2.VideoCapture(video_path)
 
