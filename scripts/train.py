@@ -1,11 +1,14 @@
+import os
 import torch
-import pandas as pd
-from torch.utils.data import Dataset, DataLoader
+from torch.utils.tensorboard import SummaryWriter
+from torch.utils.data import DataLoader
 import torch.nn as nn
 import torch.optim as optim
 import torch.nn.functional as F
-import numpy as np
-from torch.utils.tensorboard import SummaryWriter
+from sklearn.metrics import precision_recall_fscore_support, accuracy_score
+
+
+from dataset import train_dataset, val_dataset, n_classes
 
 
 class WorkoutClassifier(nn.Module):
@@ -13,7 +16,7 @@ class WorkoutClassifier(nn.Module):
         self,
         num_features,
         num_classes,
-        kernel_size=5,
+        kernel_size=9,
         lstm_hidden_size=64,
         lstm_layers=1,
         dropout_rate=0.5,
@@ -69,38 +72,13 @@ class WorkoutClassifier(nn.Module):
         return x
 
 
-# Define a custom dataset class
-class KeypointsDataset(Dataset):
-    def __init__(self, csv_file, label, group_size=30, overlap=25):
-        self.group_size = group_size
-        self.overlap = overlap
-        self.step = group_size - overlap
-        self.data = pd.read_csv(csv_file)
-        columns = ["frame"]
-        indices = np.concatenate([np.array([0]), np.arange(12, 21), np.arange(24, 33)])
-        for i in indices:
-            columns.extend([f"{i}_x", f"{i}_y", f"{i}_z"])
-        self.data = self.data[columns]
-        self.label = label
-        self.length = (len(self.data) - group_size) // self.step + 1
-
-    def __len__(self):
-        return self.length
-
-    def __getitem__(self, idx):
-        start_idx = idx * self.step
-        end_idx = start_idx + self.group_size
-        group = [
-            torch.tensor(self.data.iloc[i].values, dtype=torch.float32)
-            for i in range(start_idx, end_idx)
-        ]
-        keypoints = torch.stack(group)
-        return keypoints, torch.tensor(self.label)
-
-
 def train_model(
-    model, train_loader, criterion, optimizer, num_epochs=25, run="crossfit"
+    model, train_loader, val_loader, criterion, optimizer, num_epochs=10, run="crossfit"
 ):
+    run_number = 1
+    while os.path.exists(f"runs/{run}_{run_number}"):
+        run_number += 1
+    run = f"{run}_{run_number}"
     writer = SummaryWriter(f"runs/{run}")
 
     model.train()
@@ -110,7 +88,7 @@ def train_model(
         correct = 0
         total = 0
 
-        for batch_number, (inputs, labels) in enumerate(train_loader):
+        for inputs, labels, csv_files in train_loader:
 
             optimizer.zero_grad()
 
@@ -127,34 +105,127 @@ def train_model(
             _, predicted = torch.max(outputs, 1)
             total += labels.size(0)
             correct += (predicted == labels).sum().item()
-            print(
-                f"Batch [{batch_number+1}/{len(train_loader)}], Loss: {loss.item():.4f}"
-            )
+            # print(
+            #     f"Batch [{batch_number+1}/{len(train_loader)}], Loss: {loss.item():.4f}"
+            # )
 
         # Print statistics at the end of the epoch
         epoch_loss = running_loss / len(train_loader)
         epoch_acc = correct / total
+        print("")
         print(
-            f"Epoch [{epoch+1}/{num_epochs}], Loss: {epoch_loss:.4f}, Accuracy: {epoch_acc:.4f}"
+            f"Epoch [{epoch+1}/{num_epochs}] \nTraining Loss: {epoch_loss:.4f}, Training Accuracy: {epoch_acc:.4f}"
         )
+        val_loss,  accuracy, precision, recall, f1  = eval_model(model, val_loader, criterion)
+
+        # Save checkpoint
+        if (epoch + 1) % 5 == 0:
+            if not os.path.exists(f"runs/{run}/checkpoints"):
+                os.makedirs(f"runs/{run}/checkpoints")
+            checkpoint_path = f"runs/{run}/checkpoints/checkpoint_epoch_{epoch+1}.pth"
+            torch.save(model.state_dict(), checkpoint_path)
+            print(f"Checkpoint saved at {checkpoint_path}")
+
+        print("------------\n")
         if writer is not None:
             writer.add_scalar("Loss/train", epoch_loss, epoch)
             writer.add_scalar("Accuracy/train", epoch_acc, epoch)
+            writer.add_scalar("Loss/val", val_loss, epoch)
+            writer.add_scalar("Accuracy/val",   accuracy, epoch)
+            writer.add_scalar("Precision/val", precision, epoch)
+            writer.add_scalar("Recall/val", recall, epoch)
+            writer.add_scalar("F1/val", f1, epoch)
 
     print("Training complete")
     writer.close()
+    if not os.path.exists(f"runs/{run}/models"):
+        os.makedirs(f"runs/{run}/models")
+    torch.save(model, f"runs/{run}/models/model.pth")
 
 
-datasetAndy = KeypointsDataset("./keypoints/andy_keypoints.csv", 0)
-datasetGym = KeypointsDataset("./keypoints/gymvideo_keypoints.csv", 1)
-dataset = torch.utils.data.ConcatDataset([datasetAndy, datasetGym])
+def eval_model(model, val_loader, criterion):
+    model.eval()
 
-print(f"Total data points: {len(dataset)}")
+    running_loss = 0.0
+    correct = 0
+    total = 0
+    true_labels = []
+    predicted_labels = []
 
-dataloader = DataLoader(dataset, batch_size=32, shuffle=True)
-model = WorkoutClassifier(num_features=58, num_classes=2)
-criterion = nn.CrossEntropyLoss()  # For multi-class classification
-optimizer = optim.Adam(model.parameters(), lr=0.001)
+    with torch.no_grad():
+        for inputs, labels, csv_files in val_loader:
+            outputs = model(inputs)
+            loss = criterion(outputs, labels)
 
-train_model(model, dataloader, criterion, optimizer, num_epochs=25)
-torch.save(model, "models/model.pth")
+            running_loss += loss.item()
+
+            _, predicted = torch.max(outputs, 1)
+            true_labels.extend(labels.cpu().numpy())
+            predicted_labels.extend(predicted.cpu().numpy())
+
+    val_loss = running_loss / len(val_loader)
+    accuracy = accuracy_score(true_labels, predicted_labels)
+    precision, recall, f1, _ = precision_recall_fscore_support(true_labels, predicted_labels, average='weighted')
+
+
+    print(f"Validation :")
+    print(f"Loss: {val_loss:.4f}, Validation: {accuracy:.4f}, Precision: {precision:.4f}, Recall: {recall:.4f}, F1: {f1:.4f}")
+
+    return val_loss, accuracy, precision, recall, f1
+
+
+# dont run on import
+if __name__ == "__main__":
+
+    # datasets = []
+    # for folder in sorted(os.listdir("./keypoints")):
+    #     if not os.path.isdir(f"./keypoints/{folder}"):
+    #         continue
+    #     print(f"folder: {folder}")
+    #     files = sorted(os.listdir(f"./keypoints/{folder}"))
+    #     if len(files) > 0:
+    #         label = len(datasets)
+    #         folder_datasets = []
+    #         for file in files:
+    #             ds = KeypointsDataset(f"./keypoints/{folder}/{file}", label)
+    #             try:
+    #                 len(ds)
+    #             except:
+    #                 continue
+    #             folder_datasets.append(ds)
+    #             # print(f"  {file}")
+    #             # print(f" {len(ds)} data points")
+
+    #         dataset = torch.utils.data.ConcatDataset(folder_datasets)
+    #         print(f"   {len(folder_datasets)} files - {len(dataset)} data points")
+    #         datasets.append(dataset)
+
+    # # datasetAndy = KeypointsDataset(["./keypoints/andy_keypoints.csv"], 0)
+    # # datasetGym = KeypointsDataset(["./keypoints/gymvideo_keypoints.csv"], 1)
+    # dataset = torch.utils.data.ConcatDataset(datasets)
+    # print("----------")
+    # print(f"Total data points: {len(dataset)}")
+    # # number of classes
+    # n_classes = len(datasets)
+    # print(f"Number of classes: {n_classes}")
+    # print("----------\n")
+
+    # # Split train and validation dataset
+    # train_size = int(0.8 * len(dataset))
+    # val_size = len(dataset) - train_size
+    # train_dataset, val_dataset = torch.utils.data.random_split(
+    #     dataset, [train_size, val_size]
+    # )
+
+    # # Create data loaders for train and validation dataset
+    train_loader = DataLoader(train_dataset, batch_size=32, shuffle=True)
+    val_loader = DataLoader(val_dataset, batch_size=32, shuffle=False)
+
+    model = WorkoutClassifier(num_features=58, num_classes=n_classes)
+    criterion = nn.CrossEntropyLoss()  # For multi-class classification
+    optimizer = optim.Adam(model.parameters(), lr=0.001)
+
+    print("Training model...")
+    train_model(model, train_loader, val_loader, criterion, optimizer, num_epochs=50)
+
+    # eval_model(model, val_loader, criterion)

@@ -37,6 +37,6 @@ def display_video_with_keypoints(video_path):
     cap.release()
     cv2.destroyAllWindows()
 
-# Example usage
-video_path = "./videos/andy.mp4"
-display_video_with_keypoints(video_path)
+# # Example usage
+# video_path = "./videos/workout/tricep dips/tricep dips_6.mp4"
+# display_video_with_keypoints(video_path)
