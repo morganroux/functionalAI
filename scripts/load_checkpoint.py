@@ -1,6 +1,8 @@
 import torch
 from train import WorkoutClassifier
-from dataset import n_classes
+from dataset import get_classes
+
+class_names, n_classes = get_classes()
 
 checkpoint = torch.load("runs/crossfit_5/checkpoints/checkpoint_epoch_50.pth")
 model = WorkoutClassifier(num_features=58, num_classes=n_classes)

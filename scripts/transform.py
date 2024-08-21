@@ -11,7 +11,7 @@ pose = mp_pose.Pose(
 
 
 # Function to process a video and extract keypoints
-def process_video(video_path, output_csv_path):
+def process_video(video_path, output_csv_path=None):
     print(f"Processing video: {video_path}")
     # Open the video file
     cap = cv2.VideoCapture(video_path)
@@ -47,10 +47,12 @@ def process_video(video_path, output_csv_path):
         f"{name}_{axis}" for name in range(33) for axis in ["x", "y", "z", "visibility"]
     ]
     keypoints_df = pd.DataFrame(keypoints_list, columns=columns)
-    keypoints_df.to_csv(output_csv_path, index=False)
-
+    print(f"Finished processing {video_path}, extracted {len(keypoints_df)} keypoints")
+    if output_csv_path is not None:
+        keypoints_df.to_csv(output_csv_path, index=False)
+        print(f"Saved keypoints to {output_csv_path}")
     cap.release()
-    print(f"Finished processing {video_path} and saved keypoints to {output_csv_path}")
+    return keypoints_df
 
 
 # Process all videos in a directory
@@ -74,8 +76,8 @@ def process_videos_in_directory(input_dir, output_dir):
                     process_video(video_path, output_csv_path)
 
 
-# Example usage
-input_video_directory = "./videos/workout"
-output_keypoints_directory = "./keypoints"
+if __name__ == "__main__":
+    input_video_directory = "./videos/workout"
+    output_keypoints_directory = "./keypoints"
 
-process_videos_in_directory(input_video_directory, output_keypoints_directory)
+    process_videos_in_directory(input_video_directory, output_keypoints_directory)

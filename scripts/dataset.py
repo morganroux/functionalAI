@@ -57,42 +57,51 @@ class KeypointsDataset(Dataset):
 # train_filedataset, val_filedataset = torch.utils.data.random_split(
 #     file_dataset, [train_size, val_size]
 # )
-class_names  = pd.read_csv("./keypoints/classes.csv")
-n_classes = len(class_names)
-
-train_filedataset = pd.read_csv("./keypoints/train_filedataset.csv")
-val_filedataset = pd.read_csv("./keypoints/val_filedataset.csv")
-
-train_dataset = []
-for index, row in train_filedataset.iterrows():
-    ds = KeypointsDataset(row['filename'], row['label'])
-    try:
-        len(ds)
-    except:
-        continue
-    train_dataset.append(ds)
-
-train_dataset = torch.utils.data.ConcatDataset(train_dataset)
 
 
-val_dataset = []
-for index, row in val_filedataset.iterrows():
-    ds = KeypointsDataset(row['filename'], row['label'])
-    try:
-        len(ds)
-    except:
-        continue
-    val_dataset.append(ds)
+def get_classes():
+    class_names = pd.read_csv("./keypoints/classes.csv")
+    n_classes = len(class_names)
+    return class_names, n_classes
 
-val_dataset = torch.utils.data.ConcatDataset(val_dataset)
 
-print("----------")
-print(f"Total train data points: {len(train_dataset)}")
-print(f"Total val data points: {len(val_dataset)}")
-print(f"Number of classes: {n_classes}")
+def get_datasets():
 
-# train_loader = DataLoader(train_dataset, batch_size=4, shuffle=True)
-# val_loader = DataLoader(val_dataset, batch_size=4, shuffle=False)
-# iterloader = iter(train_loader)
-# inputs, labels, csv_file = next(iterloader)
-# print(inputs.size(), [class_names[label] for label in labels], csv_file)
+    class_names, n_classes = get_classes()
+    train_filedataset = pd.read_csv("./keypoints/train_filedataset.csv")
+    val_filedataset = pd.read_csv("./keypoints/val_filedataset.csv")
+
+    train_dataset = []
+    for index, row in train_filedataset.iterrows():
+        ds = KeypointsDataset(row["filename"], row["label"])
+        try:
+            len(ds)
+        except:
+            continue
+        train_dataset.append(ds)
+
+    train_dataset = torch.utils.data.ConcatDataset(train_dataset)
+
+    val_dataset = []
+    for index, row in val_filedataset.iterrows():
+        ds = KeypointsDataset(row["filename"], row["label"])
+        try:
+            len(ds)
+        except:
+            continue
+        val_dataset.append(ds)
+
+    val_dataset = torch.utils.data.ConcatDataset(val_dataset)
+
+    print("----------")
+    print(f"Total train data points: {len(train_dataset)}")
+    print(f"Total val data points: {len(val_dataset)}")
+    print(f"Number of classes: {n_classes}")
+
+    return train_dataset, val_dataset
+
+    # train_loader = DataLoader(train_dataset, batch_size=4, shuffle=True)
+    # val_loader = DataLoader(val_dataset, batch_size=4, shuffle=False)
+    # iterloader = iter(train_loader)
+    # inputs, labels, csv_file = next(iterloader)
+    # print(inputs.size(), [class_names[label] for label in labels], csv_file)

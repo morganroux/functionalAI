@@ -1,11 +1,14 @@
 
 from train import eval_model, criterion, WorkoutClassifier
-from dataset import val_dataset, class_names
+from dataset import get_classes, get_datasets
 import torch
 from torch.utils.data import DataLoader
 import matplotlib.pyplot as plt
 import seaborn as sns
 import numpy as np
+
+val_dataset = get_datasets()[1]
+class_names, n_classes = get_classes()
 
 model = torch.load("runs/crossfit_6/models/model.pth", weights_only=False)
 val_loader = DataLoader(val_dataset, batch_size=32, shuffle=False)

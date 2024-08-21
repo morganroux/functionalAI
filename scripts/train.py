@@ -8,7 +8,9 @@ import torch.nn.functional as F
 from sklearn.metrics import precision_recall_fscore_support, accuracy_score
 from sklearn.metrics import confusion_matrix
 
-from dataset import train_dataset, val_dataset, n_classes
+from dataset import get_datasets, get_classes
+
+class_names, n_classes = get_classes()
 
 
 class WorkoutClassifier(nn.Module):
@@ -116,7 +118,9 @@ def train_model(
         print(
             f"Epoch [{epoch+1}/{num_epochs}] \nTraining Loss: {epoch_loss:.4f}, Training Accuracy: {epoch_acc:.4f}"
         )
-        val_loss,  accuracy, precision, recall, f1, cm  = eval_model(model, val_loader, criterion)
+        val_loss, accuracy, precision, recall, f1, cm = eval_model(
+            model, val_loader, criterion
+        )
 
         # Save checkpoint
         if (epoch + 1) % 5 == 0:
@@ -131,7 +135,7 @@ def train_model(
             writer.add_scalar("Loss/train", epoch_loss, epoch)
             writer.add_scalar("Accuracy/train", epoch_acc, epoch)
             writer.add_scalar("Loss/val", val_loss, epoch)
-            writer.add_scalar("Accuracy/val",   accuracy, epoch)
+            writer.add_scalar("Accuracy/val", accuracy, epoch)
             writer.add_scalar("Precision/val", precision, epoch)
             writer.add_scalar("Recall/val", recall, epoch)
             writer.add_scalar("F1/val", f1, epoch)
@@ -164,11 +168,15 @@ def eval_model(model, val_loader, criterion):
 
     val_loss = running_loss / len(val_loader)
     accuracy = accuracy_score(true_labels, predicted_labels)
-    precision, recall, f1, _ = precision_recall_fscore_support(true_labels, predicted_labels, average='weighted')
+    precision, recall, f1, _ = precision_recall_fscore_support(
+        true_labels, predicted_labels, average="weighted"
+    )
     cm = confusion_matrix(true_labels, predicted_labels)
 
     print(f"Validation :")
-    print(f"Loss: {val_loss:.4f}, Validation: {accuracy:.4f}, Precision: {precision:.4f}, Recall: {recall:.4f}, F1: {f1:.4f}")
+    print(
+        f"Loss: {val_loss:.4f}, Validation: {accuracy:.4f}, Precision: {precision:.4f}, Recall: {recall:.4f}, F1: {f1:.4f}"
+    )
 
     return val_loss, accuracy, precision, recall, f1, cm
 
@@ -179,7 +187,7 @@ optimizer = optim.Adam(model.parameters(), lr=0.001)
 
 # dont run on import
 if __name__ == "__main__":
-
+    train_dataset, val_dataset = get_datasets()
     # datasets = []
     # for folder in sorted(os.listdir("./keypoints")):
     #     if not os.path.isdir(f"./keypoints/{folder}"):
