@@ -10,11 +10,10 @@ data_iter = iter(val_loader)
 first_batch = next(data_iter)
 
 inputs, labels, files = first_batch
-print("labels: ", labels)
 outputs = model(inputs)
 _, predicted = torch.max(outputs, 1)
-print(inputs, inputs.shape)
-print("outputs: ", outputs)
+# print(inputs, inputs.shape)
+# print("outputs: ", outputs)
 print(
-    f"Files: {list(files)} \nPredicted: {[class_names.iloc[pred]['class_name'] for pred in predicted.tolist()]}  \nActual: {[class_names.iloc[label]['class_name'] for label in labels.tolist()]}"
+    f"\nFiles: {list(files)} \nPredicted: {[class_names.iloc[pred]['class_name'] for pred in predicted.tolist()]}  \nActual: {[class_names.iloc[label]['class_name'] for label in labels.tolist()]}"
 )

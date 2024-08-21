@@ -6,6 +6,7 @@ import torch.nn as nn
 import torch.optim as optim
 import torch.nn.functional as F
 from sklearn.metrics import precision_recall_fscore_support, accuracy_score
+from sklearn.metrics import confusion_matrix
 
 from dataset import train_dataset, val_dataset, n_classes
 
@@ -115,7 +116,7 @@ def train_model(
         print(
             f"Epoch [{epoch+1}/{num_epochs}] \nTraining Loss: {epoch_loss:.4f}, Training Accuracy: {epoch_acc:.4f}"
         )
-        val_loss,  accuracy, precision, recall, f1  = eval_model(model, val_loader, criterion)
+        val_loss,  accuracy, precision, recall, f1, cm  = eval_model(model, val_loader, criterion)
 
         # Save checkpoint
         if (epoch + 1) % 5 == 0:
@@ -147,8 +148,6 @@ def eval_model(model, val_loader, criterion):
     model.eval()
 
     running_loss = 0.0
-    correct = 0
-    total = 0
     true_labels = []
     predicted_labels = []
 
@@ -166,13 +165,17 @@ def eval_model(model, val_loader, criterion):
     val_loss = running_loss / len(val_loader)
     accuracy = accuracy_score(true_labels, predicted_labels)
     precision, recall, f1, _ = precision_recall_fscore_support(true_labels, predicted_labels, average='weighted')
-
+    cm = confusion_matrix(true_labels, predicted_labels)
 
     print(f"Validation :")
     print(f"Loss: {val_loss:.4f}, Validation: {accuracy:.4f}, Precision: {precision:.4f}, Recall: {recall:.4f}, F1: {f1:.4f}")
 
-    return val_loss, accuracy, precision, recall, f1
+    return val_loss, accuracy, precision, recall, f1, cm
 
+
+model = WorkoutClassifier(num_features=58, num_classes=n_classes)
+criterion = nn.CrossEntropyLoss()  # For multi-class classification
+optimizer = optim.Adam(model.parameters(), lr=0.001)
 
 # dont run on import
 if __name__ == "__main__":
@@ -220,10 +223,6 @@ if __name__ == "__main__":
     # # Create data loaders for train and validation dataset
     train_loader = DataLoader(train_dataset, batch_size=32, shuffle=True)
     val_loader = DataLoader(val_dataset, batch_size=32, shuffle=False)
-
-    model = WorkoutClassifier(num_features=58, num_classes=n_classes)
-    criterion = nn.CrossEntropyLoss()  # For multi-class classification
-    optimizer = optim.Adam(model.parameters(), lr=0.001)
 
     print("Training model...")
     train_model(model, train_loader, val_loader, criterion, optimizer, num_epochs=50)
