@@ -1,6 +1,5 @@
-import os
 import torch
-from torch.utils.data import Dataset, DataLoader
+from torch.utils.data import Dataset
 import numpy as np
 import pandas as pd
 
@@ -35,58 +34,50 @@ class KeypointsDataset(Dataset):
         return keypoints, torch.tensor(self.label), self.csv_file
 
 
-class FileDataset(Dataset):
-    def __init__(self, csv_files, labels):
-        if len(csv_files) != len(labels):
-            raise ValueError("csv_files and labels must have the same length")
-        self.data = csv_files
-        self.labels = labels
+# file_datasets = []
+# class_names = []
+# for folder in sorted(os.listdir("./keypoints")):
+#     if not os.path.isdir(f"./keypoints/{folder}"):
+#         continue
+#     class_names.append(folder)
+#     print(f"folder: {folder}")
+#     files = sorted(os.listdir(f"./keypoints/{folder}"))
+#     label = len(class_names) - 1
+#     dataset = FileDataset(
+#         [f"./keypoints/{folder}/{file}" for file in files], [label for file in files]
+#     )
+#     print(f"   {len(dataset)} files")
+#     file_datasets.append(dataset)
 
-    def __len__(self):
-        return len(self.data)
+# n_classes = len(class_names)
+# file_dataset = torch.utils.data.ConcatDataset(file_datasets)
 
-    def __getitem__(self, idx):
-        return self.data[idx], self.labels[idx]
-
-
-file_datasets = []
-class_names = []
-for folder in sorted(os.listdir("./keypoints")):
-    if not os.path.isdir(f"./keypoints/{folder}"):
-        continue
-    class_names.append(folder)
-    print(f"folder: {folder}")
-    files = sorted(os.listdir(f"./keypoints/{folder}"))
-    label = len(class_names) - 1
-    dataset = FileDataset(
-        [f"./keypoints/{folder}/{file}" for file in files], [label for file in files]
-    )
-    print(f"   {len(dataset)} files")
-    file_datasets.append(dataset)
-
+# train_size = int(0.8 * len(file_dataset))
+# val_size = len(file_dataset) - train_size
+# train_filedataset, val_filedataset = torch.utils.data.random_split(
+#     file_dataset, [train_size, val_size]
+# )
+class_names  = pd.read_csv("./keypoints/classes.csv")
 n_classes = len(class_names)
-file_dataset = torch.utils.data.ConcatDataset(file_datasets)
 
-train_size = int(0.8 * len(file_dataset))
-val_size = len(file_dataset) - train_size
-train_filedataset, val_filedataset = torch.utils.data.random_split(
-    file_dataset, [train_size, val_size]
-)
+train_filedataset = pd.read_csv("./keypoints/train_filedataset.csv")
+val_filedataset = pd.read_csv("./keypoints/val_filedataset.csv")
 
 train_dataset = []
-for data in train_filedataset:
-    ds = KeypointsDataset(*data)
+for index, row in train_filedataset.iterrows():
+    ds = KeypointsDataset(row['filename'], row['label'])
     try:
         len(ds)
     except:
         continue
     train_dataset.append(ds)
+
 train_dataset = torch.utils.data.ConcatDataset(train_dataset)
 
 
 val_dataset = []
-for data in val_filedataset:
-    ds = KeypointsDataset(*data)
+for index, row in val_filedataset.iterrows():
+    ds = KeypointsDataset(row['filename'], row['label'])
     try:
         len(ds)
     except:

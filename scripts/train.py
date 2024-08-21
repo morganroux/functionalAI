@@ -7,7 +7,6 @@ import torch.optim as optim
 import torch.nn.functional as F
 from sklearn.metrics import precision_recall_fscore_support, accuracy_score
 
-
 from dataset import train_dataset, val_dataset, n_classes
 
 
@@ -141,6 +140,7 @@ def train_model(
     if not os.path.exists(f"runs/{run}/models"):
         os.makedirs(f"runs/{run}/models")
     torch.save(model, f"runs/{run}/models/model.pth")
+    print(f"Model saved at runs/{run}/models/model.pth")
 
 
 def eval_model(model, val_loader, criterion):
